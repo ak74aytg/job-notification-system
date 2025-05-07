@@ -1,3 +1,4 @@
+require('dotenv').config();
 const User = require("../models/userSchema");
 const Notices = require("../models/noticeSchema");
 const fs = require("fs");
