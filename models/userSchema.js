@@ -6,15 +6,25 @@ const userSchema = new Schema({
     type: String,
     required: true,
   },
-  id: { 
+  id: {
     type: String,
-    unique: true
+    required: true,
+  },
+  email: { 
+    type: String,
+    unique: true,
+    required: true
   },
   password: {
     type: String,
     required: true,
   },
-  email: {
+  isCoordinator : {
+    type : Boolean,
+    required: true,
+    default: false,
+  },
+  resume:{
     type: String,
   },
   date: {
