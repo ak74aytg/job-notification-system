@@ -4,6 +4,7 @@ const Notices = require("../models/noticeSchema");
 const fs = require("fs");
 const axios = require("axios");
 const FormData = require("form-data");
+const sendPushNotification = require("../utils/sendNotification");
 
 const getAll = async (req, res) => {
   try {
@@ -35,19 +36,11 @@ const processNotice = async (req, res) => {
       headers: form.getHeaders(),
     });
 
-    // TO BE WORKED LATER -> we have to send notification to these user 
-
-    // const matched_users = response.data.matches;
-    // const user_list = await Promise.all(
-    //   matched_users.map(async (user)=>{
-    //     return await User.findById(user.user_id);
-    //   })
-    // )
 
     const notice_details = response.data.job_details;
 
     const filename = req.file.filename; // ← Here's your unique filename
-    const fileUrl = `/notices/${filename}`;
+    const fileUrl = `notices/${filename}`;
 
     const new_notice = await Notices.create({
       user_id: user,
@@ -64,6 +57,27 @@ const processNotice = async (req, res) => {
     const saved_notice = await new_notice.save();
 
     saved_notice.notice_url = `${SERVER_BASE_URL}/${saved_notice.notice_url}`;
+
+    const matched_users = response.data.matches;
+    await Promise.all(matched_users.map(async (user)=>{
+      const matchedUser = await User.findByIdAndUpdate(user.user_id, {
+          $push: {
+            notifications: {
+              notice_id: saved_notice._id,
+              message: `New job posted: ${saved_notice.title || 'Job Opportunity'}`
+            }
+          }
+        });
+        if (matchedUser?.device_token) {
+          await sendPushNotification(
+            matchedUser.device_token,
+            "New Job Opportunity!",
+            saved_notice.title || 'Check out the new job posting!'
+          );
+        }
+      })
+    )
+
     return res.send({
       status: "success",
       notice : saved_notice,
@@ -81,8 +95,62 @@ const getMyNotices = async (req, res) => {
   return res.json({status : 'success', notices})
 }
 
+const getAllNotices = async (req, res) => {
+  const notices = await Notices.find();
+  const updatedNotices = await Promise.all(
+    notices.map(async (notice)=>{
+      const user = await User.findById(notice.user_id);
+      const { user_id, ...item} = notice.toObject();;
+      return {
+        ...item,
+        'user' : {
+          name : user?.name || 'unknown',
+          id : user?.id || '-1',
+        }
+      }
+    })
+  )
+  return res.json({status : 'success', notices : updatedNotices.reverse()})
+}
+
+const getNotifications = async (req, res) => {
+  const { userId } = req.query;
+  const user = await User.findById(userId).populate("notifications.notice_id");
+  if (!user) return res.status(404).json({ status: "error", message: "User not found" });
+  
+  return res.json({
+    status: "success",
+    notifications: user.notifications.reverse(), // latest first
+  });
+};
+
+const markNotificationsRead = async (req, res) => {
+  const { userId } = req.body;
+  await User.updateOne(
+    { _id: userId },
+    { $set: { "notifications.$[].read": true } }
+  );
+  return res.json({ status: "success" });
+};
+
+const updateDeviceToken = async (req, res) => {
+  const { userId, device_token } = req.body;
+  try {
+    await User.findByIdAndUpdate(userId, { device_token });
+    res.json({ status: 'success' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+};
+
+
+
 module.exports = {
   getAll,
   processNotice,
-  getMyNotices
+  getMyNotices,
+  getAllNotices,
+  updateDeviceToken,
+  markNotificationsRead,
+  getNotifications
 };

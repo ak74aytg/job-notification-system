@@ -483,7 +483,6 @@ function extractSkills(text) {
       foundSkills.add(skill);
     }
   }
-
   return Array.from(foundSkills);
 }
 
