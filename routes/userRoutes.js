@@ -2,7 +2,7 @@ const express = require("express")
 const router = express.Router()
 const multer = require('multer');
 const path = require("path");
-const {getAll, processNotice, getMyNotices, getAllNotices, updateDeviceToken} = require('../services/userService')
+const {getAll, processNotice, getMyNotices, getAllNotices, updateDeviceToken, getOneNotice, updateNotice} = require('../services/userService')
 const crypto = require('crypto');
 
 const storage = multer.diskStorage({
@@ -19,6 +19,8 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+router.get('/notice', getOneNotice);
+router.put('/notice', updateNotice);
 router.get('/all', getAll);
 router.get('/notices', getMyNotices)
 router.get('/notice/all', getAllNotices);

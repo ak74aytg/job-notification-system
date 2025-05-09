@@ -143,6 +143,61 @@ const updateDeviceToken = async (req, res) => {
   }
 };
 
+const updateNotice = async (req, res) => {
+  const {
+    noticeId,
+    userId,
+    title,
+    company,
+    package,
+    location,
+    last_date_to_apply,
+    apply_link,
+    description,
+  } = req.body;
+
+  try {
+    const notice = await Notices.findById(noticeId);
+    if (!notice) {
+      return res
+        .status(404)
+        .json({ status: "failure", message: "Notice not found" });
+    }
+
+    if (!userId || notice.user_id.toString() !== userId) {
+      return res
+        .status(403)
+        .json({
+          status: "failure",
+          message: "Unauthorized to update this notice",
+        });
+    }
+
+    if (title !== undefined) notice.title = title;
+    if (company !== undefined) notice.company = company;
+    if (package !== undefined) notice.package = package;
+    if (location !== undefined) notice.location = location;
+    if (last_date_to_apply !== undefined)
+      notice.last_date_to_apply = last_date_to_apply;
+    if (apply_link !== undefined) notice.apply_link = apply_link;
+    if (description !== undefined) notice.description = description;
+
+    const updatedNotice = await notice.save();
+
+    res.json({ status: "success", notice: updatedNotice });
+  } catch (error) {
+    console.error("Error updating notice:", error.message);
+    res
+      .status(500)
+      .json({ status: "error", message: "Server error while updating notice" });
+  }
+};
+
+const getOneNotice = async (req, res) => {
+  const { noticeId } = req.query;
+  const notice = await Notices.findById(noticeId);
+  return res.send({ "status" : "success", "notice": notice });
+}
 
 
 module.exports = {
@@ -152,5 +207,7 @@ module.exports = {
   getAllNotices,
   updateDeviceToken,
   markNotificationsRead,
-  getNotifications
+  getNotifications,
+  updateNotice,
+  getOneNotice,
 };
