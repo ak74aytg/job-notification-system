@@ -125,13 +125,26 @@ const getNotifications = async (req, res) => {
 };
 
 const markNotificationsRead = async (req, res) => {
-  const { userId } = req.body;
-  await User.updateOne(
-    { _id: userId },
-    { $set: { "notifications.$[].read": true } }
-  );
-  return res.json({ status: "success" });
+  const { userId, notificationId } = req.body;
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: "failure" });
+    }
+    user.notifications = user.notifications.map((notice) => {
+      if (notice._id.toString() === notificationId) {
+        notice.read = true;
+      }
+      return notice;
+    });
+    await user.save();
+    return res.json({ status: "success" });
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 };
+
 
 const updateDeviceToken = async (req, res) => {
   const { userId, device_token } = req.body;
@@ -200,6 +213,53 @@ const getOneNotice = async (req, res) => {
 }
 
 
+const getMyNotifications = async (req, res) => {
+  const { id } = req.query;
+  if (!id) {
+    return res.status(400).json({ status: "failure" });
+  }
+  try {
+    const user = await User.findById( id );
+    if (!user) {
+      return res.status(404).json({ status: "failure" });
+    }
+    res.status(200).json({ status : "success" , notifications: user.notifications.reverse() });
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ status: "error" });
+  }
+};
+
+const getNoticeDetails = async (req, res) => {
+  const { noticeId } = req.query;
+  const notice = await Notices.findById(noticeId);
+  notice.notice_url = `${SERVER_BASE_URL}/${notice.notice_url}`;
+  return res.send({ "status" : "success", "notice": notice });
+}
+
+const searchNotices = async (req, res) => {
+    try {
+        const { query } = req.query;
+        if (!query) {
+            return res.status(400).json({ status: "failed" });
+        }
+        const searchRegex = new RegExp(query, "i");
+        const notices = await Notices.find({
+            $or: [
+                { title: searchRegex },
+                { company: searchRegex },
+                { location: searchRegex },
+                { description: searchRegex }
+            ]
+        }).select("_id title company");
+        res.status(200).send({status : "success", notices: notices.reverse()});
+    } catch (error) {
+        console.error("Search error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+
 module.exports = {
   getAll,
   processNotice,
@@ -210,4 +270,7 @@ module.exports = {
   getNotifications,
   updateNotice,
   getOneNotice,
+  getMyNotifications,
+  getNoticeDetails,
+  searchNotices
 };
